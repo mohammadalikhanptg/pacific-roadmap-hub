@@ -58,7 +58,7 @@ function b64urlToBytes(s: string): Uint8Array {
 }
 function bytesToB64url(bytes: Uint8Array): string {
   let s = "";
-  for (const c of bytes) s += String.fromCharCode(c);
+  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
   return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
@@ -69,7 +69,7 @@ export function decodeJwtClaims(token: string): Record<string, any> {
 async function hmacKey(): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(SECRET),
+    new TextEncoder().encode(SECRET) as BufferSource,
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign", "verify"]
@@ -79,7 +79,7 @@ async function hmacKey(): Promise<CryptoKey> {
 export async function signSession(payload: Record<string, any>): Promise<string> {
   const data = bytesToB64url(new TextEncoder().encode(JSON.stringify(payload)));
   const key = await hmacKey();
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data) as BufferSource);
   return data + "." + bytesToB64url(new Uint8Array(sig));
 }
 
@@ -91,7 +91,12 @@ export async function verifySession(token: string | undefined): Promise<Record<s
   const sig = token.slice(dot + 1);
   try {
     const key = await hmacKey();
-    const ok = await crypto.subtle.verify("HMAC", key, b64urlToBytes(sig), new TextEncoder().encode(data));
+    const ok = await crypto.subtle.verify(
+      "HMAC",
+      key,
+      b64urlToBytes(sig) as BufferSource,
+      new TextEncoder().encode(data) as BufferSource
+    );
     if (!ok) return null;
     const payload = JSON.parse(new TextDecoder().decode(b64urlToBytes(data)));
     if (typeof payload.exp === "number" && Date.now() > payload.exp) return null;
