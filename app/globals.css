@@ -1,7 +1,7 @@
 :root{--bg:#0b0f14;--panel:#121922;--panel2:#0e141c;--line:#1e2a36;--text:#e6edf3;--muted:#8b9bab;--accent:#3b82f6;--warn:#e3b341;--danger:#f1707b;--ok:#56d364;}
 *{box-sizing:border-box;}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
-.wrap{max-width:1100px;margin:0 auto;padding:28px 18px 60px;}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 18px 60px;}
 .top h1{margin:0 0 4px;font-size:26px;letter-spacing:-0.01em;}
 .sub{color:var(--muted);margin:0 0 16px;}
 .bar{height:8px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;overflow:hidden;}
@@ -16,15 +16,23 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system
 .pc.warn b{color:var(--warn);}
 .pc.soft{background:transparent;border-color:transparent;}
 
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;}
+/* Projects are full-width horizontal bands stacked down the page. Each card is
+   its own row, so expanding one never resizes the others. On tablet/mobile the
+   internal layout collapses to a single readable column (see media queries). */
+.grid{display:flex;flex-direction:column;gap:16px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;}
 .card.attn{border-color:rgba(207,59,59,.45);}
 .chead{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
 .ctitle{min-width:0;}
-.chead h2{font-size:17px;margin:0 0 6px;}
+.chead h2{font-size:18px;margin:0 0 6px;}
 .badges{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
-.cpct{font-size:20px;font-weight:600;white-space:nowrap;}
-.summary{color:var(--muted);font-size:13px;margin:8px 0 12px;}
+.cpct{font-size:22px;font-weight:600;white-space:nowrap;}
+
+/* Horizontal card body: summary left, progress/next right. */
+.cbody{display:flex;gap:28px;align-items:flex-start;margin-top:12px;}
+.cbody .left{flex:1.6;min-width:0;}
+.cbody .right{flex:1;min-width:0;max-width:400px;}
+.summary{color:var(--muted);font-size:14px;margin:0;max-width:66ch;}
 .meta{color:var(--muted);font-size:12px;margin-top:8px;}
 
 .chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);white-space:nowrap;}
@@ -43,24 +51,24 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system
 .nlabel{display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:6px;}
 .nphase{color:var(--muted);}
 
-.drill{margin-top:12px;border-top:1px solid var(--line);padding-top:10px;}
+.drill{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;}
 .drill summary{cursor:pointer;color:var(--accent);font-size:13px;}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px;}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:12px;}
 .col{min-width:0;}
 .colhead{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between;}
 .colhead .pmeta{color:var(--text);font-weight:600;}
 .drill ul{list-style:none;margin:0;padding:0;}
-.drill li{display:flex;align-items:baseline;gap:6px;padding:3px 0;font-size:13px;flex-wrap:wrap;}
-.mlabel{flex:1;}
+.drill li{display:flex;align-items:baseline;gap:6px;padding:4px 0;font-size:13px;flex-wrap:wrap;}
+.mlabel{flex:1;min-width:0;}
 .ptag{color:var(--muted);font-size:11px;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:0 6px;}
 .mnote{color:var(--muted);font-size:12px;width:100%;}
 .none{color:var(--muted);font-size:12px;margin:2px 0;}
 
-.links{margin-top:12px;display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap;}
+.links{margin-top:14px;display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap;}
 .links a{color:var(--accent);text-decoration:none;}
 .repo{color:var(--muted);}
 
-.unmapped{margin-top:26px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;}
+.unmapped{margin-top:26px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;}
 .unmapped h3{margin:0 0 4px;font-size:15px;}
 .unmapped ul{list-style:none;margin:8px 0 0;padding:0;}
 .unmapped li{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:14px;color:var(--text);}
@@ -68,4 +76,15 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system
 .err{background:rgba(207,59,59,.12);border:1px solid rgba(207,59,59,.4);color:#f1707b;padding:12px;border-radius:8px;margin:16px 0;}
 .empty{color:var(--muted);padding:24px 0;}
 .foot{color:var(--muted);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px;}
-@media(max-width:560px){.grid{grid-template-columns:1fr;}.wrap{padding:18px 12px 48px;}.chead{flex-direction:column;}.cpct{align-self:flex-start;}.split{grid-template-columns:1fr;gap:10px;}}
+
+/* Tablet and below: stack the card body and the completed/pending split. */
+@media(max-width:820px){
+  .cbody{flex-direction:column;gap:14px;}
+  .cbody .right{max-width:none;width:100%;}
+  .split{grid-template-columns:1fr;gap:12px;}
+}
+@media(max-width:560px){
+  .wrap{padding:18px 12px 48px;}
+  .chead{flex-direction:column;}
+  .cpct{align-self:flex-start;}
+}

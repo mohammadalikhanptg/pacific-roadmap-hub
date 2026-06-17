@@ -133,14 +133,19 @@ export default async function Page() {
               <div className="cpct">{pct(t.done, t.total)}%</div>
             </div>
 
-            {p.summary && <p className="summary">{p.summary}</p>}
-
+            <div className="cbody">
+              <div className="left">
+                {p.summary && <p className="summary">{p.summary}</p>}
+              </div>
+              <div className="right">
             <div className="bar"><div className="fill" style={{ width: pct(t.done, t.total) + "%" }} /></div>
             <div className="meta">{t.done}/{t.total} done · {t.prog} in progress{t.blocked ? " · " + t.blocked + " blocked" : ""}</div>
 
             {nu ? <div className="nextup"><span className="nlabel">Next</span> {nu.label} <span className="nphase">· {nu.phase}</span></div>
               : t.total > 0 ? <div className="nextup done"><span className="nlabel">Done</span> all milestones complete — extend scope to add more</div>
               : null}
+              </div>
+            </div>
 
             <details className="drill">
               <summary>Completed and pending ({completed.length}/{t.total})</summary>
