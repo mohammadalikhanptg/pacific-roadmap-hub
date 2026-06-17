@@ -1,6 +1,13 @@
 // Minimal Microsoft Entra (OIDC authorization-code) login for an internal,
 // single-tenant page. No third-party auth library: standard Microsoft v2.0
 // endpoints + an HMAC-signed session cookie (Web Crypto, edge-compatible).
+//
+// The id_token is obtained over the back-channel code exchange (confidential
+// client, TLS direct from Microsoft), so it is not implicitly trusted on the
+// wire. As defence in depth we still validate issuer, audience and nonce
+// before trusting any claim. Full JWKS signature verification is deliberately
+// out of scope for this single-operator internal page; tenant + audience +
+// issuer + nonce + the allow-list are the gate.
 
 const TENANT = process.env.ENTRA_TENANT_ID || "";
 const CLIENT_ID = process.env.ENTRA_CLIENT_ID || "";
@@ -12,13 +19,17 @@ const ALLOWED = (process.env.ALLOWED_EMAILS || "")
 
 export const COOKIE = "rh_session";
 export const STATE_COOKIE = "rh_oauth_state";
+export const NONCE_COOKIE = "rh_oauth_nonce";
 export const REDIRECT_URI = BASE_URL + "/api/auth/callback/microsoft-entra-id";
+
+// v2.0 issuer for a single-tenant app is tenant-scoped.
+const EXPECTED_ISSUER = "https://login.microsoftonline.com/" + TENANT + "/v2.0";
 
 export function authConfigured(): boolean {
   return Boolean(TENANT && CLIENT_ID && CLIENT_SECRET && SECRET);
 }
 
-export function authorizeUrl(state: string): string {
+export function authorizeUrl(state: string, nonce: string): string {
   const p = new URLSearchParams({
     client_id: CLIENT_ID,
     response_type: "code",
@@ -26,6 +37,7 @@ export function authorizeUrl(state: string): string {
     response_mode: "query",
     scope: "openid profile email",
     state,
+    nonce,
   });
   return "https://login.microsoftonline.com/" + TENANT + "/oauth2/v2.0/authorize?" + p.toString();
 }
@@ -64,6 +76,21 @@ function bytesToB64url(bytes: Uint8Array): string {
 
 export function decodeJwtClaims(token: string): Record<string, any> {
   return JSON.parse(new TextDecoder().decode(b64urlToBytes(token.split(".")[1])));
+}
+
+// Validate the claims we rely on: correct issuer, audience minted for THIS
+// app, matching nonce from the signin redirect, and not expired. Returns
+// false on any mismatch so the callback can reject cleanly.
+export function idTokenValid(
+  claims: Record<string, any> | null | undefined,
+  expectedNonce: string | undefined
+): boolean {
+  if (!claims) return false;
+  if (claims.iss !== EXPECTED_ISSUER) return false;
+  if (claims.aud !== CLIENT_ID) return false;
+  if (!expectedNonce || claims.nonce !== expectedNonce) return false;
+  if (typeof claims.exp === "number" && Date.now() / 1000 > claims.exp) return false;
+  return true;
 }
 
 async function hmacKey(): Promise<CryptoKey> {
