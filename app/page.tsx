@@ -11,6 +11,7 @@ type Project = {
   status?: string; summary?: string; lastUpdated?: string;
   prodUrl?: string; repo?: string; phases?: Phase[];
 };
+type FlatMs = Milestone & { phase: string };
 
 const STALE_DAYS = 14;
 
@@ -18,6 +19,9 @@ const Q = `*[_type=="projectRoadmap"]{
   _id, projectKey, projectName, status, summary, lastUpdated, prodUrl, repo,
   phases[]{key, title, order, status, milestones[]{label, status, note}}
 }`;
+
+const sortedPhases = (p: Project) => (p.phases || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+const flat = (p: Project): FlatMs[] => sortedPhases(p).flatMap((ph) => (ph.milestones || []).map((m) => ({ ...m, phase: ph.title })));
 
 function tally(ms: Milestone[]) {
   return {
@@ -27,8 +31,6 @@ function tally(ms: Milestone[]) {
     total: ms.length,
   };
 }
-const sortedPhases = (p: Project) => (p.phases || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-const allMs = (p: Project) => sortedPhases(p).flatMap((ph) => ph.milestones || []);
 const pct = (d: number, t: number) => (t ? Math.round((d / t) * 100) : 0);
 
 function fmt(d?: string) {
@@ -36,41 +38,40 @@ function fmt(d?: string) {
   try { return new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
   catch { return d; }
 }
+function ts(d?: string): number {
+  if (!d) return -Infinity;
+  const t = new Date(d).getTime();
+  return isNaN(t) ? -Infinity : t;
+}
 function daysSince(d?: string): number | null {
   if (!d) return null;
   const t = new Date(d).getTime();
   if (isNaN(t)) return null;
   return Math.floor((Date.now() - t) / 86400000);
 }
+function ago(d?: string): string {
+  const ds = daysSince(d);
+  if (ds === null) return "no date";
+  if (ds === 0) {
+    const mins = Math.floor((Date.now() - new Date(d!).getTime()) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return mins + "m ago";
+    return Math.floor(mins / 60) + "h ago";
+  }
+  return ds + "d ago";
+}
 
 const chip = (s: string) => s === "done" ? "chip done" : s === "in_progress" ? "chip prog" : s === "blocked" ? "chip blocked" : "chip planned";
 const chipText = (s: string) => s === "done" ? "Done" : s === "in_progress" ? "In progress" : s === "blocked" ? "Blocked" : "Planned";
+const remainWeight = (s: string) => s === "in_progress" ? 0 : s === "blocked" ? 1 : 2;
 
-// Next thing to happen on a project: the in-progress milestone if there is one,
-// otherwise the first planned milestone, scanning phases in order. Null when
-// everything is done.
 function nextUp(p: Project): { label: string; phase: string } | null {
-  for (const ph of sortedPhases(p)) {
-    for (const m of ph.milestones || []) if (m.status === "in_progress") return { label: m.label, phase: ph.title };
-  }
-  for (const ph of sortedPhases(p)) {
-    for (const m of ph.milestones || []) if (m.status === "planned") return { label: m.label, phase: ph.title };
-  }
+  const f = flat(p);
+  const ip = f.find((m) => m.status === "in_progress");
+  if (ip) return { label: ip.label, phase: ip.phase };
+  const pl = f.find((m) => m.status === "planned");
+  if (pl) return { label: pl.label, phase: pl.phase };
   return null;
-}
-function blockedItems(p: Project): string[] {
-  return allMs(p).filter((m) => m.status === "blocked").map((m) => m.label);
-}
-
-// Lower rank = needs attention sooner. Blocked first, then stale, then active,
-// then planned, then fully complete.
-function rank(p: Project, stale: boolean): number {
-  const t = tally(allMs(p));
-  if (t.blocked > 0) return 0;
-  if (stale) return 1;
-  if ((p.status || "active") === "active" || t.prog > 0) return 2;
-  if (t.total > 0 && t.done === t.total) return 4;
-  return 3;
 }
 
 export default async function Page() {
@@ -79,10 +80,13 @@ export default async function Page() {
   try { projects = await client.fetch(Q); } catch (e: unknown) { error = e instanceof Error ? e.message : "Could not load roadmap data"; }
 
   const decorated = projects.map((p) => {
+    const f = flat(p);
     const ds = daysSince(p.lastUpdated);
     const stale = ds !== null && ds > STALE_DAYS;
-    return { p, ds, stale, t: tally(allMs(p)), nu: nextUp(p), blk: blockedItems(p), r: rank(p, stale) };
-  }).sort((a, b) => a.r - b.r || a.p.projectName.localeCompare(b.p.projectName));
+    const completed = f.filter((m) => m.status === "done");
+    const remaining = f.filter((m) => m.status !== "done").sort((a, b) => remainWeight(a.status) - remainWeight(b.status));
+    return { p, ds, stale, t: tally(f), nu: nextUp(p), completed, remaining, blk: f.filter((m) => m.status === "blocked") };
+  }).sort((a, b) => ts(b.p.lastUpdated) - ts(a.p.lastUpdated) || a.p.projectName.localeCompare(b.p.projectName));
 
   const reportedKeys = new Set(projects.map((p) => p.projectKey));
   const unmapped = EXPECTED_PROJECTS.filter((e) => !reportedKeys.has(e.key));
@@ -99,7 +103,7 @@ export default async function Page() {
     <main className="wrap">
       <header className="top">
         <h1>Project Roadmaps</h1>
-        <p className="sub">Single pane of glass across all Pacific projects. Each project keeps its own record current; this page reads them all.</p>
+        <p className="sub">Most recently updated first. Each project keeps its own record current; this page reads them all and reorders on every load.</p>
         {projects.length > 0 && (
           <div className="pcounts">
             <span className="pc"><b>{projects.length}</b>/{EXPECTED_PROJECTS.length} reporting</span>
@@ -115,64 +119,60 @@ export default async function Page() {
       {!error && projects.length === 0 && <div className="empty">No project roadmaps reported yet.</div>}
 
       <section className="grid">
-        {decorated.map(({ p, ds, stale, t, nu, blk }) => {
-          const phases = sortedPhases(p);
-          return (
-            <article key={p._id} className={"card" + (blk.length ? " attn" : "")}>
-              <div className="chead">
-                <div className="ctitle">
-                  <h2>{p.projectName}</h2>
-                  <div className="badges">
-                    <span className={chip(p.status === "active" ? "in_progress" : (p.status || "planned"))}>{p.status || "active"}</span>
-                    {blk.length > 0 && <span className="chip blocked">{blk.length} blocked</span>}
-                    {stale ? <span className="badge stale">stale {ds}d</span>
-                      : ds === null ? <span className="badge unknown">no date</span>
-                      : <span className="badge fresh">updated {ds === 0 ? "today" : ds + "d ago"}</span>}
-                  </div>
+        {decorated.map(({ p, stale, t, nu, completed, remaining, blk }) => (
+          <article key={p._id} className={"card" + (blk.length ? " attn" : "")}>
+            <div className="chead">
+              <div className="ctitle">
+                <h2>{p.projectName}</h2>
+                <div className="badges">
+                  <span className={chip(p.status === "active" ? "in_progress" : (p.status || "planned"))}>{p.status || "active"}</span>
+                  {blk.length > 0 && <span className="chip blocked">{blk.length} blocked</span>}
+                  <span className={"badge " + (stale ? "stale" : p.lastUpdated ? "fresh" : "unknown")}>updated {ago(p.lastUpdated)}</span>
                 </div>
-                <div className="cpct">{pct(t.done, t.total)}%</div>
               </div>
+              <div className="cpct">{pct(t.done, t.total)}%</div>
+            </div>
 
-              {p.summary && <p className="summary">{p.summary}</p>}
+            {p.summary && <p className="summary">{p.summary}</p>}
 
-              <div className="bar"><div className="fill" style={{ width: pct(t.done, t.total) + "%" }} /></div>
-              <div className="meta">{t.done}/{t.total} done · {t.prog} in progress{t.blocked ? " · " + t.blocked + " blocked" : ""}</div>
+            <div className="bar"><div className="fill" style={{ width: pct(t.done, t.total) + "%" }} /></div>
+            <div className="meta">{t.done}/{t.total} done · {t.prog} in progress{t.blocked ? " · " + t.blocked + " blocked" : ""}</div>
 
-              {nu && <div className="nextup"><span className="nlabel">Next</span> {nu.label} <span className="nphase">· {nu.phase}</span></div>}
-              {blk.length > 0 && <div className="blockedline"><span className="nlabel">Blocked</span> {blk.slice(0, 2).join("; ")}{blk.length > 2 ? " +" + (blk.length - 2) + " more" : ""}</div>}
-              {!nu && t.total > 0 && <div className="nextup done"><span className="nlabel">Done</span> all milestones complete</div>}
+            {nu ? <div className="nextup"><span className="nlabel">Next</span> {nu.label} <span className="nphase">· {nu.phase}</span></div>
+              : t.total > 0 ? <div className="nextup done"><span className="nlabel">Done</span> all milestones complete — extend scope to add more</div>
+              : null}
 
-              <details className="drill">
-                <summary>Milestones</summary>
-                {phases.map((ph, i) => {
-                  const pt = tally(ph.milestones || []);
-                  return (
-                    <div key={ph.key || i} className="phase">
-                      <div className="phead"><strong>{ph.title}</strong><span className="pmeta">{pt.done}/{pt.total}</span></div>
-                      <ul>
-                        {(ph.milestones || []).map((m, j) => (
-                          <li key={j}>
-                            <span className={chip(m.status)}>{chipText(m.status)}</span>
-                            <span className="mlabel">{m.label}</span>
-                            {m.note && <span className="mnote">{m.note}</span>}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  );
-                })}
-              </details>
-
-              {(p.prodUrl || p.repo) && (
-                <div className="links">
-                  {p.prodUrl && <a href={p.prodUrl} target="_blank" rel="noreferrer">Live</a>}
-                  {p.repo && <span className="repo">{p.repo}</span>}
-                  {p.lastUpdated && <span className="repo">· {fmt(p.lastUpdated)}</span>}
+            <details className="drill">
+              <summary>Completed and pending ({completed.length}/{t.total})</summary>
+              <div className="split">
+                <div className="col">
+                  <div className="colhead">Completed <span className="pmeta">{completed.length}</span></div>
+                  {completed.length === 0 ? <p className="none">Nothing completed yet.</p> : (
+                    <ul>{completed.map((m, i) => (
+                      <li key={"c" + i}><span className="chip done">Done</span><span className="mlabel">{m.label}</span><span className="ptag">{m.phase}</span></li>
+                    ))}</ul>
+                  )}
                 </div>
-              )}
-            </article>
-          );
-        })}
+                <div className="col">
+                  <div className="colhead">Pending <span className="pmeta">{remaining.length}</span></div>
+                  {remaining.length === 0 ? <p className="none">Nothing pending — roadmap complete.</p> : (
+                    <ul>{remaining.map((m, i) => (
+                      <li key={"r" + i}><span className={chip(m.status)}>{chipText(m.status)}</span><span className="mlabel">{m.label}</span><span className="ptag">{m.phase}</span>{m.note && <span className="mnote">{m.note}</span>}</li>
+                    ))}</ul>
+                  )}
+                </div>
+              </div>
+            </details>
+
+            {(p.prodUrl || p.repo || p.lastUpdated) && (
+              <div className="links">
+                {p.prodUrl && <a href={p.prodUrl} target="_blank" rel="noreferrer">Live</a>}
+                {p.repo && <span className="repo">{p.repo}</span>}
+                {p.lastUpdated && <span className="repo">· {fmt(p.lastUpdated)}</span>}
+              </div>
+            )}
+          </article>
+        ))}
       </section>
 
       {unmapped.length > 0 && (
@@ -185,7 +185,7 @@ export default async function Page() {
         </section>
       )}
 
-      <footer className="foot">Each project updates its own record; this page reads them all. Stale = not updated in over {STALE_DAYS} days.</footer>
+      <footer className="foot">Ordered by most recent update. Stale = not updated in over {STALE_DAYS} days.</footer>
     </main>
   );
 }
