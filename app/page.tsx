@@ -1,5 +1,6 @@
 import { client } from "@/lib/sanity";
 import { EXPECTED_PROJECTS } from "@/lib/projects";
+import { PhaseAccordion } from "@/app/components/PhaseAccordion";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -119,7 +120,7 @@ export default async function Page() {
       {!error && projects.length === 0 && <div className="empty">No project roadmaps reported yet.</div>}
 
       <section className="grid">
-        {decorated.map(({ p, stale, t, nu, completed, remaining, blk }) => (
+        {decorated.map(({ p, stale, t, nu, blk }) => (
           <article key={p._id} className={"card" + (blk.length ? " attn" : "")}>
             <div className="chead">
               <div className="ctitle">
@@ -147,27 +148,7 @@ export default async function Page() {
               </div>
             </div>
 
-            <details className="drill">
-              <summary>Completed and pending ({completed.length}/{t.total})</summary>
-              <div className="split">
-                <div className="col">
-                  <div className="colhead">Completed <span className="pmeta">{completed.length}</span></div>
-                  {completed.length === 0 ? <p className="none">Nothing completed yet.</p> : (
-                    <ul>{completed.map((m, i) => (
-                      <li key={"c" + i}><span className="chip done">Done</span><span className="mlabel">{m.label}</span><span className="ptag">{m.phase}</span></li>
-                    ))}</ul>
-                  )}
-                </div>
-                <div className="col">
-                  <div className="colhead">Pending <span className="pmeta">{remaining.length}</span></div>
-                  {remaining.length === 0 ? <p className="none">Nothing pending — roadmap complete.</p> : (
-                    <ul>{remaining.map((m, i) => (
-                      <li key={"r" + i}><span className={chip(m.status)}>{chipText(m.status)}</span><span className="mlabel">{m.label}</span><span className="ptag">{m.phase}</span>{m.note && <span className="mnote">{m.note}</span>}</li>
-                    ))}</ul>
-                  )}
-                </div>
-              </div>
-            </details>
+            <PhaseAccordion phases={sortedPhases(p)} />
 
             {(p.prodUrl || p.repo || p.lastUpdated) && (
               <div className="links">

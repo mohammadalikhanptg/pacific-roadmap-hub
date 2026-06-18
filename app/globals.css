@@ -64,6 +64,24 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system
 .mnote{color:var(--muted);font-size:12px;width:100%;}
 .none{color:var(--muted);font-size:12px;margin:2px 0;}
 
+/* Phase accordion */
+.phase-drill{margin-top:14px;border-top:1px solid var(--line);padding-top:10px;}
+.phase-summary-line{font-size:12px;color:var(--muted);margin-bottom:6px;}
+.phases{display:flex;flex-direction:column;}
+.phase-block{border-bottom:1px solid var(--line);}
+.phase-block:last-child{border-bottom:none;}
+.phase-row{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;background:none;border:none;color:inherit;cursor:pointer;padding:7px 0;text-align:left;}
+.phase-row:hover .phase-title{color:var(--accent);}
+.phase-left{display:flex;align-items:center;gap:6px;min-width:0;flex:1;}
+.phase-chevron{color:var(--muted);font-size:11px;flex-shrink:0;}
+.phase-title{font-size:13px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.phase-right{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.phase-count{font-size:12px;color:var(--muted);white-space:nowrap;}
+.phase-bar{width:60px;height:5px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;overflow:hidden;flex-shrink:0;}
+.milestone-list{list-style:none;margin:0 0 8px;padding:0 0 0 18px;}
+.milestone-list li{display:flex;align-items:baseline;gap:6px;padding:3px 0;font-size:13px;flex-wrap:wrap;}
+.no-milestones{color:var(--muted);font-size:12px;list-style:none;}
+
 .links{margin-top:14px;display:flex;gap:10px;align-items:center;font-size:12px;flex-wrap:wrap;}
 .links a{color:var(--accent);text-decoration:none;}
 .repo{color:var(--muted);}
@@ -77,14 +95,14 @@ body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system
 .empty{color:var(--muted);padding:24px 0;}
 .foot{color:var(--muted);font-size:12px;margin-top:30px;border-top:1px solid var(--line);padding-top:14px;}
 
-/* Tablet and below: stack the card body and the completed/pending split. */
+/* Tablet and below: stack the card body. */
 @media(max-width:820px){
   .cbody{flex-direction:column;gap:14px;}
   .cbody .right{max-width:none;width:100%;}
-  .split{grid-template-columns:1fr;gap:12px;}
 }
 @media(max-width:560px){
   .wrap{padding:18px 12px 48px;}
   .chead{flex-direction:column;}
   .cpct{align-self:flex-start;}
+  .phase-bar{width:40px;}
 }
